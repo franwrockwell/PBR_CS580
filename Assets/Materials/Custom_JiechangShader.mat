@@ -20,9 +20,9 @@ Material:
     serializedVersion: 3
     m_TexEnvs: []
     m_Floats:
-    - _glossiness: 1
-    - _metallic: 1
-    - _roughness: 0
+    - _glossiness: 0
+    - _metallic: 0.516
+    - _roughness: 0.217
     m_Colors:
-    - _baseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _specularColor: {r: 0, g: 1, b: 0, a: 1}
+    - _baseColor: {r: 1, g: 0, b: 0.7889848, a: 1}
+    - _specularColor: {r: 0.04401779, g: 0, b: 1, a: 1}
