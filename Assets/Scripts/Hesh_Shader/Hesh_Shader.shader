@@ -69,120 +69,9 @@ Shader "Custom/HeshShader"
                 return o;
             }
 
-            //helper function
-            float FD90(float NdotL, float roughness)
-            {
-                return (0.5 + 2 * NdotL*NdotL*roughness);
-            }
-            
-            float Phong_NDF(float RdotV, float specularpower, float speculargloss)
-            {
-                float Distribution = pow(RdotV, specularpower)*speculargloss;
-                Distribution *= (2 + specularpower) / (2 );
-                return Distribution;
-            }
-
-            float Lambertian_Diffuse(float NdotL,float diffusepower)
-            {
-                return diffusepower/3.1415926*NdotL;
-            }
-
-            float Blinn_Phong_NDF(float NdotH, float specularpower, float speculargloss)
-            {
-                float Distribution = pow(NdotH, specularpower)*speculargloss;
-                Distribution *= (8 + specularpower) / (2 * 3.1415926);
-                return Distribution;
-            }
-            //algorithms
-            float3 Disney_Diffuse(float NdotL, float NdotV, float roughness,float3 baseColor)
-            {
-                float fd90 = FD90(NdotL, roughness);
-                float3 newColor;
-                newColor.r = (baseColor.r / 3.1415926)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
-                newColor.g = (baseColor.g / 3.1415926)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
-                newColor.b = (baseColor.b / 3.1415926)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
-                return newColor;
-            }
-
-            float3 Disney_D_Func(float NdotH, float roughness)
-            {
-                float c = 1.0;
-                float gama = 1.0;
-                float alpha = roughness * roughness;
-                float Distribution = c / pow((alpha*alpha*NdotH*NdotH+(1-NdotH*NdotH)), gama);
-                return Distribution;
-            }
-
-            float3 Disney_F_Func(float LdotH)
-            {
-                float f0 = 0.5;
-                float Distribution = f0 + (1 - f0)*pow((1 - LdotH), 5);
-                return Distribution;
-            }
-
-            float Disney_G_Func(float NdotV,float NdotL, float roughness)
-            {
-                float alphaG = pow((0.5 + roughness / 2), 2);
-                float b = 1.0 / (NdotL + sqrt(alphaG + NdotL * NdotL - alphaG * NdotL));
-                float c = 1.0 / (NdotV + sqrt(alphaG + NdotV * NdotV - alphaG * NdotL));
-                return b * c;
-            }
-
-
             //pixel Shader
             float4 frag(VertexOutput i) :COLOR{
-                float3 normalDirection = normalize(i.normalDir);
-
-                float3 lightDirection = normalize(lerp(_WorldSpaceLightPos0.xyz, _WorldSpaceLightPos0.xyz - i.posWorld.xyz, _WorldSpaceLightPos0.w));
-                float3 lightReflectDirection = reflect(-lightDirection, normalDirection);
-                float3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
-                float3 viewReflectDirection = normalize(reflect(-viewDirection, normalDirection));
-                float3 halfDirection = normalize(viewDirection + lightDirection);
-                
-                //Get Dot Production Result
-                float NdotL = dot(normalDirection, lightDirection);
-                float NdotH = dot(normalDirection, halfDirection);
-                float NdotV = dot(normalDirection, viewDirection);
-                if (NdotL < 0 && NdotV < 0)
-                {
-                    normalDirection = -1 * normalDirection;
-                }
-                else if (NdotL < 0)
-                {
-                    return float4(0, 0, 0, 0);
-                }
-                else if (NdotV < 0)
-                {
-                    return float4(0, 0, 0, 0);
-                }
-                NdotL = dot(normalDirection, lightDirection);
-                NdotH = dot(normalDirection, halfDirection);
-                NdotV = dot(normalDirection, viewDirection);
-                float VdotH = max(-dot(viewDirection, halfDirection), dot(viewDirection, halfDirection));
-                float LdotH = max(-dot(lightDirection, halfDirection), dot(lightDirection, halfDirection));
-                float LdotV = max(-dot(lightDirection, viewDirection), dot(lightDirection, viewDirection));
-                float LRdotV = max(-dot(lightReflectDirection, viewDirection), dot(lightReflectDirection, viewDirection));
-                
-                //Get Other Property Value
-                float attenuation = LIGHT_ATTENUATION(i);
-                float3 attenColor = attenuation * _LightColor0.rgb;
-                float roughnessSquare = _roughness * _roughness;
-
-                //Metallic
-                float3 diffuseColor = _baseColor.rgb*(1 - _metallic);
-                float3 specColor = lerp(_specularColor.rgb, _baseColor, _metallic*0.5);
-                float3 SpecularDistribution = specColor;
-                
-                //SpecularDistribution *= Phong_NDF(LRdotV, max(1,_glossiness*40),_glossiness);
-                //SpecularDistribution *= Blinn_Phong_NDF(NdotH, max(1, _glossiness * 20), _glossiness);
-
-                //algorithms function here
-                //diffuseColor *= Lambertian_Diffuse(NdotL, _roughness);
-
-                //return float4(diffuseColor+ float3(1, 1, 1)*SpecularDistribution, 1);
-                diffuseColor = Disney_Diffuse(NdotL, NdotV, _roughness, _baseColor);
-                SpecularDistribution *= Disney_D_Func(NdotH, _roughness)*Disney_F_Func(LdotH)*Disney_G_Func(NdotL,NdotV,_roughness) / 4 / NdotL / NdotV;
-                return float4(diffuseColor+SpecularDistribution,1.0) * 0.0;
+                return float4(0.1,0,0.1,1.0);
             }
             ENDCG
         }
@@ -190,7 +79,7 @@ Shader "Custom/HeshShader"
         Pass{
         
             Tags{"LightMode" = "ForwardAdd"}
-            Blend One One
+            Blend one one
             //Name "FORWARD"
             CGPROGRAM
             #pragma vertex vert
@@ -257,7 +146,7 @@ Shader "Custom/HeshShader"
 
             float Lambertian_Diffuse(float NdotL,float diffusepower)
             {
-                return diffusepower/3.1415926*NdotL;
+                return sqrt(diffusepower+0.1)*NdotL;
             }
 
             float Blinn_Phong_NDF(float NdotH, float specularpower, float speculargloss)
@@ -271,13 +160,13 @@ Shader "Custom/HeshShader"
             {
                 float fd90 = FD90(NdotL, roughness);
                 float3 newColor;
-                newColor.r = (baseColor.r / 3.1415926)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
-                newColor.g = (baseColor.g / 3.1415926)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
-                newColor.b = (baseColor.b / 3.1415926)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
+                newColor.r = (baseColor.r)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
+                newColor.g = (baseColor.g)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
+                newColor.b = (baseColor.b)*(1 + (fd90 - 1)*pow((1 - NdotL), 5))*(1 + (fd90 - 1)*pow((1 - NdotV), 5));
                 return newColor;
             }
 
-            float3 Disney_D_Func(float NdotH, float roughness)
+            float Disney_D_Func(float NdotH, float roughness)
             {
                 float c = 1.0;
                 float gama = 1.0;
@@ -286,7 +175,7 @@ Shader "Custom/HeshShader"
                 return Distribution;
             }
 
-            float3 Disney_F_Func(float LdotH)
+            float Disney_F_Func(float LdotH)
             {
                 float f0 = 0.5;
                 float Distribution = f0 + (1 - f0)*pow((1 - LdotH), 5);
@@ -297,7 +186,7 @@ Shader "Custom/HeshShader"
             {
                 float alphaG = pow((0.5 + roughness / 2), 2);
                 float b = 1.0 / (NdotL + sqrt(alphaG + NdotL * NdotL - alphaG * NdotL));
-                float c = 1.0 / (NdotV + sqrt(alphaG + NdotV * NdotV - alphaG * NdotL));
+                float c = 1.0 / (NdotV + sqrt(alphaG + NdotV * NdotV - alphaG * NdotV));
                 return b * c;
             }
 
@@ -313,28 +202,13 @@ Shader "Custom/HeshShader"
                 float3 halfDirection = normalize(viewDirection + lightDirection);
                 
                 //Get Dot Production Result
-                float NdotL = dot(normalDirection, lightDirection);
-                float NdotH = dot(normalDirection, halfDirection);
-                float NdotV = dot(normalDirection, viewDirection);
-                if (NdotL < 0 && NdotV < 0)
-                {
-                    normalDirection = -1 * normalDirection;
-                }
-                else if (NdotL < 0)
-                {
-                    return float4(0, 0, 0, 0);
-                }
-                else if (NdotV < 0)
-                {
-                    return float4(0, 0, 0, 0);
-                }
-                NdotL = dot(normalDirection, lightDirection);
-                NdotH = dot(normalDirection, halfDirection);
-                NdotV = dot(normalDirection, viewDirection);
-                float VdotH = max(-dot(viewDirection, halfDirection), dot(viewDirection, halfDirection));
-                float LdotH = max(-dot(lightDirection, halfDirection), dot(lightDirection, halfDirection));
-                float LdotV = max(-dot(lightDirection, viewDirection), dot(lightDirection, viewDirection));
-                float LRdotV = max(-dot(lightReflectDirection, viewDirection), dot(lightReflectDirection, viewDirection));
+                float NdotL = max(0.0,dot(normalDirection, lightDirection));
+                float NdotH = max(0.0, dot(normalDirection, halfDirection));
+                float NdotV = max(0.0, dot(normalDirection, viewDirection));
+                float VdotH = max(0.0, dot(viewDirection, halfDirection));
+                float LdotH = max(0.0, dot(lightDirection, halfDirection));
+                float LdotV = max(0.0, dot(lightDirection, viewDirection));
+                float LRdotV = max(0.0, dot(lightReflectDirection, viewDirection));
                 
                 //Get Other Property Value
                 float attenuation = LIGHT_ATTENUATION(i);
@@ -342,27 +216,30 @@ Shader "Custom/HeshShader"
                 float roughnessSquare = _roughness * _roughness;
 
                 //Metallic
-                float3 diffuseColor = _baseColor.rgb*(1 - _metallic);
-                float3 specColor = lerp(_specularColor.rgb, _baseColor, _metallic*0.5);
-                float3 SpecularDistribution = specColor;
+				//float3 diffuseColor = lerp(attenColor, _baseColor.rgb, 1 - _metallic);
+                float3 specColor = lerp(attenColor, _baseColor.rgb, _metallic*0.5);
+				float3 SpecularDistribution = specColor;
                 
                 //SpecularDistribution *= Phong_NDF(LRdotV, max(1,_glossiness*40),_glossiness);
                 //SpecularDistribution *= Blinn_Phong_NDF(NdotH, max(1, _glossiness * 20), _glossiness);
 
                 //algorithms function here
-                //diffuseColor *= Lambertian_Diffuse(NdotL, _roughness);
+               // diffuseColor *= Lambertian_Diffuse(NdotL, _roughness);
 
                 //return float4(diffuseColor+ float3(1, 1, 1)*SpecularDistribution, 1);
-                diffuseColor = Disney_Diffuse(NdotL, NdotV, _roughness, _baseColor);
-                SpecularDistribution *= Disney_D_Func(NdotH, _roughness)*Disney_F_Func(LdotH)*Disney_G_Func(NdotL,NdotV,_roughness) / 4 / NdotL / NdotV;
+				float3 diffuseColor = Disney_Diffuse(NdotL, NdotV, _roughness, _baseColor);
+				SpecularDistribution.r *= Disney_D_Func(NdotH, _roughness)*Disney_F_Func(LdotH)*Disney_G_Func(NdotL, NdotV, _roughness);// / 4 / NdotL / NdotV;
+				SpecularDistribution.g *= Disney_D_Func(NdotH, _roughness)*Disney_F_Func(LdotH)*Disney_G_Func(NdotL, NdotV, _roughness);
+				SpecularDistribution.b *= Disney_D_Func(NdotH, _roughness)*Disney_F_Func(LdotH)*Disney_G_Func(NdotL, NdotV, _roughness);
+			
                 float d;
                 if(_WorldSpaceLightPos0.w == 0){
                     d = 1.0;
                 }
                 else{
-                    d = sqrt(dot(_WorldSpaceLightPos0.xyz - i.posWorld.xyz, _WorldSpaceLightPos0.xyz - i.posWorld.xyz)) * 0.1;
+                    d = sqrt(dot(_WorldSpaceLightPos0.xyz - i.posWorld.xyz, _WorldSpaceLightPos0.xyz - i.posWorld.xyz)) * 1;
                 }
-                return float4(diffuseColor+SpecularDistribution,1.0) / d;
+                return float4(diffuseColor/3.14+SpecularDistribution,1.0)/d*0.5;
             }
             ENDCG
         }

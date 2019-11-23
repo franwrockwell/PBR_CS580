@@ -55,13 +55,13 @@ public class FileOpener : MonoBehaviour
     public void UpdateMetallic(float val)
     {
         if(rend)
-            rend.material.SetFloat("_Metallic", val);
+            rend.material.SetFloat("_metallic", val);
     }
 
     public void UpdateSmoothness(float val)
     {
         if(rend)
-            rend.material.SetFloat("_Glossiness", val);
+            rend.material.SetFloat("_roughness", val);
     }
 }
 /*
