@@ -12,8 +12,9 @@
         _anIsotropic("Anisotropic",Range(0,1))=0.5
         _sheen("Sheen",Range(0,1))=0
         _sheenTint("SheenTint",Range(0,1))=0
-        _clearCoat("ClearCoat",Range(0,1))=0
+        _clearCoat("ClearCoat",Color)=(1,1,1,1)
         _clearCoatGloss("ClearCoatGloss",Range(0,1))=0
+		[Toggle] _GTR1_GTR2("GTR1 or GTR2?", Int) = 0
     }
     SubShader
     {
@@ -69,7 +70,7 @@
 
             //pixel Shader
             float4 frag(VertexOutput i) :COLOR{
-                return float4(0.05,0.05,0.05,1.0);
+                return float4(0,0,0,1.0);
             }
             ENDCG
         }
@@ -81,6 +82,7 @@
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+			#pragma multi_compile _GTR1_GTR2_OFF _GTR1_GTR2_ON
             #include "UnityCG.cginc"
             #include"AutoLight.cginc"
             #include"Lighting.cginc"
@@ -94,7 +96,7 @@
             half _anIsotropic;
             half _sheen;
             half _sheenTint;
-            half _clearCoat;
+            float4 _clearCoat;
             half _clearCoatGloss;
 
             struct VertexInput {
@@ -195,10 +197,41 @@
                 float t=1+(a2-1)*cos2th;
                 return a2/(3.1415*t*t);
             }
+			float sqr(float a)
+			{
+				return a * a;
+			}
+			float D_GTR2_Anisotropic(float roughness,float anisotropic, float HdotX, float HdotY, float NdotH)
+			{
+				float a = sqrt(1 - 0.9*anisotropic);
+				float alpha_x = roughness * roughness / a;
+				float alpha_y = roughness * roughness*a;
+				return 1.0 / (3.1415*alpha_x*alpha_y*sqr(sqr(HdotY / alpha_x) + sqr(HdotX / alpha_y) + sqr(NdotH)));
+			}
+
+			float F_clearcoat(float VdotH)
+			{
+				return 0.04 + 0.96*pow(1 - VdotH, 5);
+			}
+			float D_clearcoat(float clearcoatgloss, float NdotH)
+			{
+				float alpha = lerp(0.1, 0.01, clearcoatgloss);
+				float den = sqr(alpha)*sqr(NdotH) + (1 - sqr(NdotH));
+				return (sqr(alpha) - 1) / (2 * 3.1415*log(alpha)*den);
+			}
+			float G_clearcoat(float roughness, float NdotV)
+			{
+				float alphaG = pow(0.5 + roughness / 2.0, 2);
+				float a = sqr(alphaG);
+				float b = sqr(NdotV);
+				return 1.0 / (NdotV + sqrt(a + b - a * b));
+			}
 
             float4 frag(VertexOutput i):COLOR
             {
                 float3 normalDirection = normalize(i.normalDir);
+				float3 X = normalize(i.tangentDir);
+				float3 Y = normalize(i.bitangentDir);
 
                 float3 lightDirection = normalize(lerp(_WorldSpaceLightPos0.xyz, _WorldSpaceLightPos0.xyz - i.posWorld.xyz, _WorldSpaceLightPos0.w));
                 float3 lightReflectDirection = reflect(-lightDirection, normalDirection);
@@ -207,10 +240,12 @@
                 float3 halfDirection = normalize(viewDirection + lightDirection);
                 
                 //Get Dot Production Result
-                float NdotL = max(0.0,dot(normalDirection, lightDirection));
-                float NdotH = max(0.0, dot(normalDirection, halfDirection));
-                float NdotV = max(0.0, dot(normalDirection, viewDirection));
-                float VdotH = max(0.0, dot(viewDirection, halfDirection));
+                float NdotL = max(0.02,dot(normalDirection, lightDirection));
+                float NdotH = max(0.02, dot(normalDirection, halfDirection));
+                float NdotV = max(0.02, dot(normalDirection, viewDirection));
+                float VdotH = max(0.02, dot(viewDirection, halfDirection));
+				float HdotX = dot(halfDirection, X);
+				float HdotY = dot(halfDirection, Y);
                 float LdotH = max(0.0, dot(lightDirection, halfDirection));
                 float LdotV = max(0.0, dot(lightDirection, viewDirection));
                 float LRdotV = max(0.0, dot(lightReflectDirection, viewDirection));
@@ -225,11 +260,20 @@
                 }
                 DiffusionColor=DiffusionColor*(1-_metallic);
 
-                float3 specularColor=F_specular_Disney(_baseColor,_specularTint,_metallic,_specular,VdotH)*G_specular_GGX_Disney(_roughness,NdotV)*D_GTR2_Disney(_roughness,NdotH);
-                specularColor/=(1);
-                //float3 lightColor = _LightColor0.rgb;
+				float d;
 
-                return float4(DiffusionColor+specularColor,1);
+#ifdef _GTR1_GTR2_ON
+				d = D_GTR1_Disney(_roughness, NdotH);
+#else
+				d = D_GTR2_Anisotropic(_roughness, _anIsotropic, HdotX, HdotY, NdotH);//D_GTR2_Disney(_roughness, NdotH);
+#endif
+
+                float3 specularColor=F_specular_Disney(_baseColor,_specularTint,_metallic,_specular,VdotH)*G_specular_GGX_Disney(_roughness,NdotV)*d;
+				specularColor /= 4.0;
+
+				float3 clearCoatColor = _clearCoat.rgb * (F_clearcoat(VdotH)*G_clearcoat(_roughness,NdotV)*D_clearcoat(_clearCoatGloss,NdotH))/(16.0*NdotL*NdotV);
+
+                return float4(DiffusionColor+specularColor+clearCoatColor,1);
             }
             ENDCG
         }
