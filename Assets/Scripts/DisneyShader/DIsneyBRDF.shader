@@ -32,6 +32,7 @@
             #include"AutoLight.cginc"
             #include"Lighting.cginc"
             #pragma multi_compile_fwdbase_fullshadows
+			float4 _baseColor;
 
             struct VertexInput {
                 float4 vertex : POSITION; //Model Space position
@@ -70,7 +71,7 @@
 
             //pixel Shader
             float4 frag(VertexOutput i) :COLOR{
-                return float4(0,0,0,1.0);
+                return float4(_baseColor.rgb*0.1,1.0);
             }
             ENDCG
         }
@@ -170,6 +171,7 @@
                 float3 colorTint=baseColor/lum_Disney(baseColor);
                 float3 specularColor=lerp(lerp(colorWhite,colorTint,SpecularTint)*specular*0.08,baseColor,metallic);
                 return specularColor+(colorWhite-specularColor)*pow(1-VdotH,5);
+				//return 1;
             }
 
             float G_specular_GGX_Disney(float roughness,float NdotV)
@@ -240,10 +242,10 @@
                 float3 halfDirection = normalize(viewDirection + lightDirection);
                 
                 //Get Dot Production Result
-                float NdotL = max(0.02,dot(normalDirection, lightDirection));
-                float NdotH = max(0.02, dot(normalDirection, halfDirection));
-                float NdotV = max(0.02, dot(normalDirection, viewDirection));
-                float VdotH = max(0.02, dot(viewDirection, halfDirection));
+                float NdotL = max(0.05,dot(normalDirection, lightDirection));
+                float NdotH = max(0.05, dot(normalDirection, halfDirection));
+                float NdotV = max(0.05, dot(normalDirection, viewDirection));
+                float VdotH = max(0.05, dot(viewDirection, halfDirection));
 				float HdotX = dot(halfDirection, X);
 				float HdotY = dot(halfDirection, Y);
                 float LdotH = max(0.0, dot(lightDirection, halfDirection));
@@ -269,9 +271,9 @@
 #endif
 
                 float3 specularColor=F_specular_Disney(_baseColor,_specularTint,_metallic,_specular,VdotH)*G_specular_GGX_Disney(_roughness,NdotV)*d;
-				specularColor /= 4.0;
+				specularColor /= 4*NdotL*NdotV;
 
-				float3 clearCoatColor = _clearCoat.rgb * (F_clearcoat(VdotH)*G_clearcoat(_roughness,NdotV)*D_clearcoat(_clearCoatGloss,NdotH))/(16.0*NdotL*NdotV);
+				float3 clearCoatColor = _clearCoat.rgb * (F_clearcoat(VdotH)*G_clearcoat(_roughness,NdotV)*D_clearcoat(_clearCoatGloss,NdotH))/(4*NdotL*NdotV);
 
                 return float4(DiffusionColor+specularColor+clearCoatColor,1);
             }
