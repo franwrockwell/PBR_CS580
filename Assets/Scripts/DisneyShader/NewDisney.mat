@@ -26,15 +26,15 @@ Material:
     m_Floats:
     - _GTR1_GTR2: 0
     - _IS_Anisotropic: 0
-    - _anIsotropic: 0
+    - _anIsotropic: 0.89
     - _clearCoat: 0.726
     - _clearCoatGloss: 1
-    - _metallic: 0.676
+    - _metallic: 0.36
     - _roughness: 0.437
-    - _sheen: 1
+    - _sheen: 0
     - _sheenTint: 0.382
-    - _specular: 0.879
-    - _specularTint: 0.679
+    - _specular: 0.39
+    - _specularTint: 0.97
     - _subSurface: 0.465
     m_Colors:
     - _baseColor: {r: 0.8679245, g: 0.50356, b: 0.50356, a: 1}
