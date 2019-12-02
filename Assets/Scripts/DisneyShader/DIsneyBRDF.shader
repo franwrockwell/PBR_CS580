@@ -169,7 +169,7 @@
             {
                 float3 colorWhite=float3(1,1,1);
                 float3 colorTint=baseColor/lum_Disney(baseColor);
-                float3 specularColor=lerp(lerp(colorWhite,colorTint,SpecularTint)*specular*0.08,baseColor,metallic);
+                float3 specularColor=lerp(lerp(colorWhite,colorTint,SpecularTint)*specular*1,baseColor,metallic);
                 return specularColor+(colorWhite-specularColor)*pow(1-VdotH,5);
 				//return 1;
             }
@@ -184,11 +184,12 @@
 
             float D_GTR1_Disney(float roughness,float NdotH)
             {
+				roughness = min(0.99, roughness);
                 float alpha=roughness*roughness;
                 float a2=alpha*alpha;
                 float cos2th=NdotH*NdotH;
                 float den=(1+(a2-1)*cos2th);
-                return (a2-1)/(3.1415*log(a2)*den);
+                return (a2-1)/(3.1415*0.5*log(a2)*den);
             }
 
             float D_GTR2_Disney(float roughness,float NdotH)
@@ -205,6 +206,7 @@
 			}
 			float D_GTR2_Anisotropic(float roughness,float anisotropic, float HdotX, float HdotY, float NdotH)
 			{
+				roughness = max(0.01, roughness);
 				float a = sqrt(1 - 0.9*anisotropic);
 				float alpha_x = roughness * roughness / a;
 				float alpha_y = roughness * roughness*a;
@@ -217,9 +219,9 @@
 			}
 			float D_clearcoat(float clearcoatgloss, float NdotH)
 			{
-				float alpha = lerp(0.1, 0.01, clearcoatgloss);
+				float alpha = lerp(0.1, 0.01, clearcoatgloss)*0.08;
 				float den = sqr(alpha)*sqr(NdotH) + (1 - sqr(NdotH));
-				return (sqr(alpha) - 1) / (2 * 3.1415*log(alpha)*den);
+				return (sqr(alpha) - 1) / (3.1415*log(alpha)*den);
 			}
 			float G_clearcoat(float roughness, float NdotV)
 			{
@@ -239,17 +241,17 @@
                 float3 lightReflectDirection = reflect(-lightDirection, normalDirection);
                 float3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
                 float3 viewReflectDirection = normalize(reflect(-viewDirection, normalDirection));
-                float3 halfDirection = normalize(viewDirection + lightDirection);
+                float3 halfDirection = normalize(viewDirection + lightReflectDirection);
                 
                 //Get Dot Production Result
                 float NdotL = max(0.05,dot(normalDirection, lightDirection));
                 float NdotH = max(0.05, dot(normalDirection, halfDirection));
                 float NdotV = max(0.05, dot(normalDirection, viewDirection));
-                float VdotH = max(0.05, dot(viewDirection, halfDirection));
+                float VdotH = max(0.01, dot(viewDirection, halfDirection));
 				float HdotX = dot(halfDirection, X);
 				float HdotY = dot(halfDirection, Y);
                 float LdotH = max(0.0, dot(lightDirection, halfDirection));
-                float LdotV = max(0.0, dot(lightDirection, viewDirection));
+                //float LdotV = max(0.0, dot(lightDirection, viewDirection));
                 float LRdotV = max(0.0, dot(lightReflectDirection, viewDirection));
 
                 float3 DiffusionColor_Based=Diffuse_Burley_Disney(_baseColor.rgb,_roughness,NdotV,NdotL,VdotH);
@@ -271,11 +273,12 @@
 #endif
 
                 float3 specularColor=F_specular_Disney(_baseColor,_specularTint,_metallic,_specular,VdotH)*G_specular_GGX_Disney(_roughness,NdotV)*d;
-				specularColor /= 4*NdotL*NdotV;
+				specularColor /= 4;//*NdotL*NdotV;
 
-				float3 clearCoatColor = _clearCoat.rgb * (F_clearcoat(VdotH)*G_clearcoat(_roughness,NdotV)*D_clearcoat(_clearCoatGloss,NdotH))/(4*NdotL*NdotV);
+				float3 clearCoatColor = _clearCoat.rgb * (F_clearcoat(VdotH)*G_clearcoat(_roughness,NdotV)*D_clearcoat(_clearCoatGloss,NdotH))/(16*NdotL*NdotV);
 
                 return float4(DiffusionColor+specularColor+clearCoatColor,1);
+				//return float4(VdotH, 0, 0, 1);
             }
             ENDCG
         }
